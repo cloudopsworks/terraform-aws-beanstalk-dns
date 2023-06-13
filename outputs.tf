@@ -5,9 +5,9 @@
 #
 
 locals {
-  record = try(aws_route53_record.app_record_plain, aws_route53_record.app_record_weighted, aws_route53_record.app_record_alias, aws_route53_record.app_record_alias_weighted)
+  record = try(aws_route53_record.app_record_plain[0].fqdn, aws_route53_record.app_record_weighted[0].fqdn, aws_route53_record.app_record_alias[0].fqdn, aws_route53_record.app_record_alias_weighted[0].fqdn)
 }
 
 output "fqdn" {
-  value = local.record[0].fqdn
+  value = local.record
 }
