@@ -9,5 +9,5 @@ locals {
 }
 
 output "fqdn" {
-  value = local.record.fqdn
+  value = local.record[0].fqdn
 }
