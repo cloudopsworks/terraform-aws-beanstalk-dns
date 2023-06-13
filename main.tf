@@ -8,7 +8,7 @@ data "aws_route53_zone" "app_domain" {
 }
 
 resource "aws_route53_record" "app_record_plain" {
-  count = var.domain_name_weight < 0 ? 1 : 0
+  count = var.domain_name_weight < 0 && !var.domain_alias ? 1 : 0
 
   zone_id = data.aws_route53_zone.app_domain.zone_id
   name    = "${var.domain_name_alias_prefix}.${var.domain_name}"
@@ -20,7 +20,7 @@ resource "aws_route53_record" "app_record_plain" {
 }
 
 resource "aws_route53_record" "app_record_weighted" {
-  count = var.domain_name_weight >= 0 ? 1 : 0
+  count = var.domain_name_weight >= 0 && !var.domain_alias ? 1 : 0
 
   zone_id = data.aws_route53_zone.app_domain.zone_id
   name    = "${var.domain_name_alias_prefix}.${var.domain_name}"
@@ -35,4 +35,37 @@ resource "aws_route53_record" "app_record_weighted" {
   records = [
     var.beanstalk_environment_cname
   ]
+}
+
+resource "aws_route53_record" "app_record_alias" {
+  count = var.domain_name_weight < 0 && var.domain_alias ? 1 : 0
+
+  zone_id = data.aws_route53_zone.app_domain.zone_id
+  name    = "${var.domain_name_alias_prefix}.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    evaluate_target_health = var.domain_check_target
+    name                   = var.beanstalk_environment_cname
+    zone_id                = var.beanstalk_zone_id
+  }
+}
+
+resource "aws_route53_record" "app_record_alias_weighted" {
+  count = var.domain_name_weight >= 0 && var.domain_alias ? 1 : 0
+
+  zone_id = data.aws_route53_zone.app_domain.zone_id
+  name    = "${var.domain_name_alias_prefix}.${var.domain_name}"
+  type    = "A"
+
+  weighted_routing_policy {
+    weight = var.domain_name_weight
+  }
+
+  set_identifier = "${var.release_name}-${var.namespace}"
+  alias {
+    evaluate_target_health = var.domain_check_target
+    name                   = var.beanstalk_environment_cname
+    zone_id                = var.beanstalk_zone_id
+  }
 }

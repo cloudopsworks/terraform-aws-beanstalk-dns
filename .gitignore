@@ -30,5 +30,8 @@ override.tf.json
 
 ## Tronador excludes
 .tronador
-tronador/
+tronador/**/*
 .terraform.lock.hcl
+
+# IntelliJ Idea excludes
+.idea

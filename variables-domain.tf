@@ -26,3 +26,15 @@ variable "domain_name_weight" {
   default     = -1
   description = "(optional) DNS weight >=0 states weighted DNS distribution."
 }
+
+variable "domain_check_target" {
+  type        = bool
+  default     = true
+  description = "(optional) Check if domain is available. This directs the to be an alias record to be health cheched automatically."
+}
+
+variable "domain_alias" {
+  type        = bool
+  default     = true
+  description = "(optional) Create domain alias record. If false, then a simple CNAME record will be created, check target is not available if false."
+}

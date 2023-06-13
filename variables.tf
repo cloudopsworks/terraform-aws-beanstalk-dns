@@ -16,3 +16,9 @@ variable "beanstalk_environment_cname" {
   type        = string
   description = "(required) CNAME to point records to."
 }
+
+variable "beanstalk_zone_id" {
+  type        = string
+  default     = ""
+  description = "(required) Route53 zone to create records in."
+}
