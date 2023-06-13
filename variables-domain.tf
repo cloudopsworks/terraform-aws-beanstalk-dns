@@ -35,6 +35,6 @@ variable "domain_check_target" {
 
 variable "domain_alias" {
   type        = bool
-  default     = true
-  description = "(optional) Create domain alias record. If false, then a simple CNAME record will be created, check target is not available if false."
+  default     = false
+  description = "(optional) Create domain alias record. If false, then a simple CNAME record will be created, check target is not available if false. Default is false for backwards compat."
 }
