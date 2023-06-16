@@ -15,7 +15,7 @@ resource "aws_route53_record" "app_record_plain" {
   type    = "CNAME"
   ttl     = var.default_domain_ttl
   records = [
-    var.beanstalk_environment_cname
+    var.alias_cname
   ]
 }
 
@@ -33,7 +33,7 @@ resource "aws_route53_record" "app_record_weighted" {
 
   set_identifier = "${var.release_name}-${var.namespace}"
   records = [
-    var.beanstalk_environment_cname
+    var.alias_cname
   ]
 }
 
@@ -46,14 +46,14 @@ resource "aws_route53_record" "app_record_alias" {
 
   alias {
     evaluate_target_health = var.domain_check_target
-    name                   = var.beanstalk_environment_cname
-    zone_id                = var.beanstalk_zone_id
+    name                   = var.alias_cname
+    zone_id                = var.alias_zone_id
   }
 
   lifecycle {
     precondition {
-      condition     = var.beanstalk_zone_id != ""
-      error_message = "Beanstalk Zone ID must be set to use Alias records"
+      condition     = var.alias_zone_id != ""
+      error_message = "Zone ID must be set to use Alias records"
     }
   }
 }
@@ -72,14 +72,14 @@ resource "aws_route53_record" "app_record_alias_weighted" {
   set_identifier = "${var.release_name}-${var.namespace}"
   alias {
     evaluate_target_health = var.domain_check_target
-    name                   = var.beanstalk_environment_cname
-    zone_id                = var.beanstalk_zone_id
+    name                   = var.alias_cname
+    zone_id                = var.alias_zone_id
   }
 
   lifecycle {
     precondition {
-      condition     = var.beanstalk_zone_id != ""
-      error_message = "Beanstalk Zone ID must be set to use Alias records"
+      condition     = var.alias_zone_id != ""
+      error_message = "Zone ID must be set to use Alias records"
     }
   }
 }

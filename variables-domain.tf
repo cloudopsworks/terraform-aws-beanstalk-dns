@@ -38,3 +38,15 @@ variable "domain_alias" {
   default     = false
   description = "(optional) Create domain alias record. If false, then a simple CNAME record will be created, check target is not available if false. Default is false for backwards compat."
 }
+
+variable "alias_cname" {
+  type        = string
+  default     = ""
+  description = "(optional) CNAME to point records to."
+}
+
+variable "alias_zone_id" {
+  type        = string
+  default     = ""
+  description = "(optional) Route53 zone to create records in."
+}
