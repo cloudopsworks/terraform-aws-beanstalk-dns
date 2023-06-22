@@ -50,3 +50,9 @@ variable "alias_zone_id" {
   default     = ""
   description = "(optional) Route53 zone to create records in."
 }
+
+variable "health_check_id" {
+  type        = string
+  default     = ""
+  description = "(optional) Route53 health check to associate with the record."
+}

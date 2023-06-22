@@ -14,9 +14,12 @@ resource "aws_route53_record" "app_record_plain" {
   name    = "${var.domain_name_alias_prefix}.${var.domain_name}"
   type    = "CNAME"
   ttl     = var.default_domain_ttl
+
   records = [
     var.alias_cname
   ]
+
+  health_check_id = var.domain_check_target ? var.health_check_id : null
 }
 
 resource "aws_route53_record" "app_record_weighted" {
@@ -35,6 +38,8 @@ resource "aws_route53_record" "app_record_weighted" {
   records = [
     var.alias_cname
   ]
+
+  health_check_id = var.domain_check_target ? var.health_check_id : null
 }
 
 resource "aws_route53_record" "app_record_alias" {
@@ -45,10 +50,12 @@ resource "aws_route53_record" "app_record_alias" {
   type    = "A"
 
   alias {
-    evaluate_target_health = var.domain_check_target
+    evaluate_target_health = var.domain_check_target && var.health_check_id == ""
     name                   = var.alias_cname
     zone_id                = var.alias_zone_id
   }
+
+  health_check_id = var.domain_check_target ? var.health_check_id : null
 
   lifecycle {
     precondition {
@@ -71,10 +78,12 @@ resource "aws_route53_record" "app_record_alias_weighted" {
 
   set_identifier = "${var.release_name}-${var.namespace}"
   alias {
-    evaluate_target_health = var.domain_check_target
+    evaluate_target_health = var.domain_check_target && var.health_check_id == ""
     name                   = var.alias_cname
     zone_id                = var.alias_zone_id
   }
+
+  health_check_id = var.domain_check_target ? var.health_check_id : null
 
   lifecycle {
     precondition {
