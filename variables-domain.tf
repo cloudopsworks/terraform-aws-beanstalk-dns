@@ -58,7 +58,7 @@ variable "health_check_id" {
 }
 
 variable "private_domain" {
-  type = bool
-  default = false
+  type        = bool
+  default     = false
   description = "(optional) Route53 Public domain indicator for zone search. Default to false."
 }

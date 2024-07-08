@@ -4,7 +4,7 @@
 #            Distributed Under Apache v2.0 License
 #
 data "aws_route53_zone" "app_domain" {
-  name = var.domain_name
+  name         = var.domain_name
   private_zone = var.private_domain
 }
 

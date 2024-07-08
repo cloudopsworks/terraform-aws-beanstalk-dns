@@ -35,3 +35,4 @@ tronador/**/*
 
 # IntelliJ Idea excludes
 .idea
+/tronador/
