@@ -56,3 +56,9 @@ variable "health_check_id" {
   default     = ""
   description = "(optional) Route53 health check to associate with the record."
 }
+
+variable "private_domain" {
+  type = bool
+  default = false
+  description = "(optional) Route53 Public domain indicator for zone search. Default to false."
+}
