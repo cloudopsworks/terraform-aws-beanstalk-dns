@@ -1,0 +1,34 @@
+# Module configuration
+#
+# terraform-aws-beanstalk-dns — Route53 record management for application environments.
+# Every key below maps into the generated terragrunt.hcl `inputs` block.
+# Values sourced from the Terragrunt hierarchy (is_hub, org, spoke_def, extra_tags)
+# are injected automatically and are intentionally absent from this file.
+
+# --- Provider ---------------------------------------------------------------
+region: "us-east-1"           # (Optional) AWS region the provider operates in. Default is "us-east-1".
+sts_assume_role: ""           # (Required) ARN of the IAM role assumed by the AWS provider, e.g. "arn:aws:iam::123456789012:role/terraform".
+
+# --- Record identity --------------------------------------------------------
+release_name: "myapp"         # (Required) Release name of the deployed application. Combined with namespace to build the weighted record set identifier.
+namespace: "dev"              # (Required) Namespace that determines the environment naming. Combined with release_name to build the weighted record set identifier.
+
+# --- Hosted zone ------------------------------------------------------------
+domain_name: "example.com"    # (Optional) Route53 hosted zone name the record is created in. The zone is looked up by name and must already exist. Default is "example.com".
+private_domain: false         # (Optional) Look the hosted zone up as a private zone instead of a public one. Values: true | false. Default is false.
+
+# --- Record definition ------------------------------------------------------
+domain_name_alias_prefix: ""  # (Optional) Host prefix prepended to domain_name to form the record FQDN, as in "<prefix>.<domain_name>". Default is "" (empty).
+alias_cname: ""               # (Optional) Target the record points to: the CNAME value for CNAME records, or the alias target DNS name for alias records. Default is "" (empty).
+default_domain_ttl: 300       # (Optional) TTL in seconds applied to CNAME records. Ignored for alias records, which inherit the TTL of the target. Default is 300.
+
+# --- Routing policy ---------------------------------------------------------
+domain_name_weight: -1        # (Optional) Weight for weighted routing. Values >= 0 create a weighted record identified by "<release_name>-<namespace>"; a negative value creates a simple record. Default is -1.
+
+# --- Alias records ----------------------------------------------------------
+domain_alias: false           # (Optional) Create a Route53 alias A record instead of a CNAME record. Requires alias_zone_id when true. Values: true | false. Default is false.
+alias_zone_id: ""             # (Optional) Route53 hosted zone ID of the alias target, e.g. "Z2FDTNDATAQYW2". Required when domain_alias is true; the module fails a precondition otherwise. Default is "" (empty).
+
+# --- Health checking --------------------------------------------------------
+domain_check_target: true     # (Optional) Associate a health check with the record. For alias records with no health_check_id set, evaluate_target_health is enabled instead. Values: true | false. Default is true.
+health_check_id: ""           # (Optional) ID of an existing Route53 health check to associate with the record. Only applied when domain_check_target is true. Default is "" (empty).

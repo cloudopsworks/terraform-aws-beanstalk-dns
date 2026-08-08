@@ -1,38 +1,355 @@
-name: <project name>
+name: terraform-aws-beanstalk-dns
 
 #logo: logo/logo.jpg
+badges:
+  - name: Latest Release
+    image: https://img.shields.io/github/release/cloudopsworks/terraform-aws-beanstalk-dns.svg?style=for-the-badge
+    url: https://github.com/cloudopsworks/terraform-aws-beanstalk-dns/releases/latest
+  - name: Last Updated
+    image: https://img.shields.io/github/last-commit/cloudopsworks/terraform-aws-beanstalk-dns.svg?style=for-the-badge
+    url: https://github.com/cloudopsworks/terraform-aws-beanstalk-dns/commits
 
 license: "APACHE2"
 
 copyrights:
   - name: "Cloud Ops Works LLC"
-    url: "https://cloudops.works"
+    url: "https://cloudopsworks.co"
     year: "2021"
 
-github_repo: <owner/repo>
+github_repo: cloudopsworks/terraform-aws-beanstalk-dns
 
 
 description: |-
-  <description>.
+  Terraform module that manages the Amazon Route53 DNS records fronting an application
+  environment — typically an AWS Elastic Beanstalk environment, but any CNAME or alias
+  target works. It resolves the hosted zone by name, then creates exactly one record of
+  the variant selected by the input combination: a plain CNAME, a weighted CNAME, an
+  alias `A` record, or a weighted alias `A` record — with optional Route53 health check
+  association.
 
 # Introduction to the project
-#introduction: |-
-#  This is an introduction.
+introduction: |-
+  Publishing an application environment behind a friendly hostname usually means the same
+  handful of Route53 decisions over and over: is this a CNAME or an alias, is traffic
+  weighted across environments, and is the target health checked. This module encapsulates
+  those decisions behind a small, flat input surface so a deployment only declares intent.
+
+  ### Record selection
+
+  The module never creates more than one record. Which one it creates is decided by two
+  inputs — `domain_alias` and `domain_name_weight`:
+
+  | `domain_alias` | `domain_name_weight` | Resource created            | Record type |
+  |----------------|----------------------|-----------------------------|-------------|
+  | `false`        | `< 0`                | `app_record_plain`          | `CNAME`     |
+  | `false`        | `>= 0`               | `app_record_weighted`       | `CNAME`     |
+  | `true`         | `< 0`                | `app_record_alias`          | `A` (alias) |
+  | `true`         | `>= 0`               | `app_record_alias_weighted` | `A` (alias) |
+
+  In every case the record name is `<domain_name_alias_prefix>.<domain_name>` and the
+  target is `alias_cname`.
+
+  ### Weighted routing
+
+  Setting `domain_name_weight` to a value greater than or equal to `0` switches the module
+  into weighted routing. The record set identifier is derived as
+  `<release_name>-<namespace>`, which keeps sibling environments — for example `blue` and
+  `green`, or two regional deployments — distinct inside the same record set. A negative
+  weight (the default, `-1`) means simple routing and no set identifier.
+
+  ### Alias records
+
+  When `domain_alias` is `true` the module emits a Route53 alias `A` record instead of a
+  `CNAME`. Alias records let the apex of a zone point at an AWS resource and are not
+  billed per query. This mode requires `alias_zone_id` — the hosted zone ID of the *target*
+  resource, not of your own zone. A `precondition` fails the plan with a clear message if
+  it is left empty.
+
+  ### Health checking
+
+  `domain_check_target` controls health check behaviour and applies to all four variants:
+
+  - With `health_check_id` set, that health check is associated with the record.
+  - With `health_check_id` empty and the record being an alias, `evaluate_target_health`
+    is enabled so Route53 follows the health of the alias target itself.
+  - With `domain_check_target = false`, no health check is associated at all.
+
+  ### Public and private zones
+
+  The hosted zone is resolved by name through a `aws_route53_zone` data source, so the zone
+  must already exist. Set `private_domain = true` to resolve a private hosted zone instead
+  of a public one — useful when the same domain name is served by both a public and a
+  private zone in the same account.
 
 # How to use this project
-#usage: |-
+usage: |-
+  This module is consumed through [Terragrunt](https://terragrunt.gruntwork.io/) using the
+  built-in `scaffold` command, which reads `.boilerplate/boilerplate.yml` from this
+  repository and generates `terragrunt.hcl`, `inputs.yaml` and `local-tags.json` into your
+  deployment directory.
+
+  ### 1. Scaffold the deployment
+
+  ```sh
+  # Create and enter the target deployment directory
+  mkdir -p <environment>/<region>/<spoke>/beanstalk-dns
+  cd <environment>/<region>/<spoke>/beanstalk-dns
+
+  # Scaffold the module (do NOT use --working-dir)
+  terragrunt scaffold github.com/cloudopsworks/terraform-aws-beanstalk-dns
+
+  # Edit inputs.yaml with deployment-specific values
+  vi inputs.yaml
+
+  # Apply
+  terragrunt apply
+  ```
+
+  ### 2. Fill in `inputs.yaml`
+
+  Scaffold writes the annotated file below. Every key carries its `(Required)` /
+  `(Optional)` marker and default, so no Terraform source needs to be read to configure a
+  deployment.
+
+  ```yaml
+  # --- Provider ---------------------------------------------------------------
+  region: "us-east-1"           # (Optional) AWS region the provider operates in. Default is "us-east-1".
+  sts_assume_role: ""           # (Required) ARN of the IAM role assumed by the AWS provider.
+
+  # --- Record identity --------------------------------------------------------
+  release_name: "myapp"         # (Required) Release name of the deployed application. Combined with namespace to build the weighted record set identifier.
+  namespace: "dev"              # (Required) Namespace that determines the environment naming.
+
+  # --- Hosted zone ------------------------------------------------------------
+  domain_name: "example.com"    # (Optional) Route53 hosted zone name the record is created in. Must already exist. Default is "example.com".
+  private_domain: false         # (Optional) Look the hosted zone up as a private zone. Values: true | false. Default is false.
+
+  # --- Record definition ------------------------------------------------------
+  domain_name_alias_prefix: ""  # (Optional) Host prefix prepended to domain_name, as in "<prefix>.<domain_name>". Default is "" (empty).
+  alias_cname: ""               # (Optional) Target the record points to: CNAME value, or alias target DNS name. Default is "" (empty).
+  default_domain_ttl: 300       # (Optional) TTL in seconds for CNAME records. Ignored for alias records. Default is 300.
+
+  # --- Routing policy ---------------------------------------------------------
+  domain_name_weight: -1        # (Optional) Weight for weighted routing. >= 0 creates a weighted record; negative creates a simple record. Default is -1.
+
+  # --- Alias records ----------------------------------------------------------
+  domain_alias: false           # (Optional) Create an alias A record instead of a CNAME. Requires alias_zone_id. Default is false.
+  alias_zone_id: ""             # (Optional) Route53 hosted zone ID of the alias target. Required when domain_alias is true. Default is "" (empty).
+
+  # --- Health checking --------------------------------------------------------
+  domain_check_target: true     # (Optional) Associate a health check with the record. Default is true.
+  health_check_id: ""           # (Optional) ID of an existing Route53 health check. Applied only when domain_check_target is true. Default is "" (empty).
+  ```
+
+  ### 3. Generated `terragrunt.hcl`
+
+  Scaffold produces the file below — it is shown for reference and should not be
+  hand-authored. `inputs.yaml` is loaded as `local.local_vars` and mapped into the module
+  inputs, while `is_hub`, `org`, `spoke_def` and `extra_tags` are resolved from the
+  surrounding Terragrunt hierarchy.
+
+  ```hcl
+  locals {
+    local_vars  = yamldecode(file("./inputs.yaml"))
+    spoke_vars  = yamldecode(file(find_in_parent_folders("spoke-inputs.yaml")))
+    region_vars = yamldecode(file(find_in_parent_folders("region-inputs.yaml")))
+    env_vars    = yamldecode(file(find_in_parent_folders("env-inputs.yaml")))
+    global_vars = yamldecode(file(find_in_parent_folders("global-inputs.yaml")))
+
+    local_tags  = jsondecode(file("./local-tags.json"))
+    spoke_tags  = jsondecode(file(find_in_parent_folders("spoke-tags.json")))
+    region_tags = jsondecode(file(find_in_parent_folders("region-tags.json")))
+    env_tags    = jsondecode(file(find_in_parent_folders("env-tags.json")))
+    global_tags = jsondecode(file(find_in_parent_folders("global-tags.json")))
+
+    tags = merge(
+      local.global_tags,
+      local.env_tags,
+      local.region_tags,
+      local.spoke_tags,
+      local.local_tags
+    )
+  }
+
+  include "root" {
+    path = find_in_parent_folders("root.hcl")
+  }
+
+  terraform {
+    source = "github.com/cloudopsworks/terraform-aws-beanstalk-dns?ref=v1.1"
+  }
+
+  inputs = {
+    is_hub          = false
+    org             = local.env_vars.org
+    spoke_def       = local.spoke_vars.spoke
+    release_name    = local.local_vars.release_name
+    namespace       = local.local_vars.namespace
+    sts_assume_role = local.local_vars.sts_assume_role
+
+    region                   = try(local.local_vars.region, "us-east-1")
+    domain_name              = try(local.local_vars.domain_name, "example.com")
+    domain_name_alias_prefix = try(local.local_vars.domain_name_alias_prefix, "")
+    default_domain_ttl       = try(local.local_vars.default_domain_ttl, 300)
+    domain_name_weight       = try(local.local_vars.domain_name_weight, -1)
+    domain_check_target      = try(local.local_vars.domain_check_target, true)
+    domain_alias             = try(local.local_vars.domain_alias, false)
+    alias_cname              = try(local.local_vars.alias_cname, "")
+    alias_zone_id            = try(local.local_vars.alias_zone_id, "")
+    health_check_id          = try(local.local_vars.health_check_id, "")
+    private_domain           = try(local.local_vars.private_domain, false)
+
+    extra_tags = local.tags
+  }
+  ```
+
+  ### Outputs
+
+  | Output | Description |
+  |--------|-------------|
+  | `fqdn` | Fully qualified domain name of the record created, whichever variant was selected. |
 
 # Example usage
-#examples: |-
+examples: |-
+  All examples below are `inputs.yaml` fragments. Only the keys relevant to each scenario
+  are shown; the rest keep their defaults.
+
+  ### Plain CNAME record
+
+  Point `app.example.com` at an Elastic Beanstalk environment CNAME with a 5 minute TTL.
+
+  ```yaml
+  release_name: "myapp"
+  namespace: "dev"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "app"
+  alias_cname: "myapp-dev.us-east-1.elasticbeanstalk.com"
+  default_domain_ttl: 300
+  domain_check_target: false
+  ```
+
+  ### Weighted CNAME for blue/green traffic splitting
+
+  Deploy this twice — once per environment — with the same `domain_name_alias_prefix` and
+  different `release_name` / `namespace` pairs, so each deployment owns its own record set
+  identifier. Weights are relative, so `80` and `20` split traffic 80/20.
+
+  ```yaml
+  # Blue deployment
+  release_name: "myapp"
+  namespace: "blue"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "app"
+  alias_cname: "myapp-blue.us-east-1.elasticbeanstalk.com"
+  domain_name_weight: 80
+  ```
+
+  ```yaml
+  # Green deployment
+  release_name: "myapp"
+  namespace: "green"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "app"
+  alias_cname: "myapp-green.us-east-1.elasticbeanstalk.com"
+  domain_name_weight: 20
+  ```
+
+  ### Alias A record with target health evaluation
+
+  Alias records need the hosted zone ID of the **target** resource. Leaving
+  `health_check_id` empty while `domain_check_target` is `true` turns on
+  `evaluate_target_health`, so Route53 follows the health of the load balancer itself.
+
+  ```yaml
+  release_name: "myapp"
+  namespace: "prod"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "www"
+  domain_alias: true
+  alias_cname: "dualstack.myapp-prod-1234567890.us-east-1.elb.amazonaws.com"
+  alias_zone_id: "Z35SXDOTRQ7X7K"
+  domain_check_target: true
+  ```
+
+  ### Weighted alias records with an explicit health check
+
+  Combining `domain_alias` with a non-negative `domain_name_weight` yields a weighted
+  alias record. Supplying `health_check_id` associates an existing Route53 health check
+  instead of evaluating target health.
+
+  ```yaml
+  release_name: "myapp"
+  namespace: "prod-use1"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "www"
+  domain_alias: true
+  alias_cname: "dualstack.myapp-use1-1234567890.us-east-1.elb.amazonaws.com"
+  alias_zone_id: "Z35SXDOTRQ7X7K"
+  domain_name_weight: 50
+  domain_check_target: true
+  health_check_id: "abcdef12-3456-7890-abcd-ef1234567890"
+  ```
+
+  ### Private hosted zone
+
+  Resolve an internal zone of the same name instead of the public one.
+
+  ```yaml
+  release_name: "myapp"
+  namespace: "internal"
+  domain_name: "example.com"
+  domain_name_alias_prefix: "api"
+  alias_cname: "internal-myapp-1234567890.us-east-1.elb.amazonaws.com"
+  private_domain: true
+  ```
 
 # How to get started quickly
-#quickstart: |-
+quickstart: |-
+  ### Prerequisites
+
+  - [Terragrunt](https://terragrunt.gruntwork.io/) and OpenTofu / Terraform installed.
+  - An existing Route53 hosted zone matching `domain_name` — this module looks the zone up,
+    it does not create it.
+  - AWS credentials able to assume the role given in `sts_assume_role`.
+  - A CloudOps Works Terragrunt hierarchy providing `global-`, `env-`, `region-` and
+    `spoke-inputs.yaml` plus their matching `*-tags.json` files.
+
+  ### Steps
+
+  ```sh
+  # 1. Create the deployment directory
+  mkdir -p dev/us-east-1/apps/beanstalk-dns
+  cd dev/us-east-1/apps/beanstalk-dns
+
+  # 2. Scaffold from this module
+  terragrunt scaffold github.com/cloudopsworks/terraform-aws-beanstalk-dns
+
+  # 3. Set the minimum required values in inputs.yaml:
+  #      sts_assume_role, release_name, namespace,
+  #      domain_name, domain_name_alias_prefix, alias_cname
+  vi inputs.yaml
+
+  # 4. Review the plan, then apply
+  terragrunt plan
+  terragrunt apply
+  ```
+
+  The `fqdn` output returns the full record name created, ready to be consumed by
+  downstream deployments.
+
+  ### Working on the module itself
+
+  ```sh
+  make fmt      # format terraform/opentofu code
+  make lint     # validate and lint
+  make readme   # regenerate README.md from README.yaml
+  ```
 
 # Uncomment to include terraform generated docs (optional)
-#include:
-#  - "docs/targets.md"
-#  - "docs/terraform.md"
+include:
+  - "docs/targets.md"
+  - "docs/terraform.md"
 
 contributors:
-  - name: "<contributor name>"
-    github: "<github id>"
+  - name: "Cristian Beraha"
+    github: "berahac"

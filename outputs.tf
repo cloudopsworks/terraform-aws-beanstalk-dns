@@ -1,7 +1,10 @@
 ##
-# (c) 2023 - Cloud Ops Works LLC - https://cloudops.works/
-#            On GitHub: https://github.com/cloudopsworks
-#            Distributed Under Apache v2.0 License
+# (c) 2021-2026
+#     Cloud Ops Works LLC - https://cloudops.works/
+#     Find us on:
+#       GitHub: https://github.com/cloudopsworks
+#       WebSite: https://cloudops.works
+#     Distributed Under Apache v2.0 License
 #
 
 locals {
@@ -9,5 +12,6 @@ locals {
 }
 
 output "fqdn" {
-  value = local.record
+  description = "Fully qualified domain name of the Route53 record created by the module, whichever variant (plain, weighted, alias or weighted alias) was selected."
+  value       = local.record
 }
